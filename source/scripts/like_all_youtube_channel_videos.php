@@ -15,7 +15,7 @@ define('CLIENT_SECRET_FILE', __DIR__.'/client_secret_....json');
 
 require_once(__DIR__.'/../classes/vendor/autoload.php');
 
-if (!CLIENT_SECRET_FILE) {
+if (!CLIENT_SECRET_FILE || !file_exists(CLIENT_SECRET_FILE)) {
 	echo "create & download an oauth json file from google first\n";
 	die;
 }
