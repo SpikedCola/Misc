@@ -7,6 +7,8 @@ from selenium.webdriver.support import expected_conditions as EC
 import json
 import time
 import urllib.request
+import subprocess
+from pathlib import Path
 
 chrome_options = Options()
 chrome_options.add_extension("ublock.crx"); # skip preroll ads cutting down on wait time.
@@ -29,34 +31,32 @@ go = True
 page=0
 base_url = 'https://www.canalrcn.com/rigo/'
 episode_list_url=base_url+"capitulos/?ord=&page="
-outdir="rigo_m3u8/"
+playlist_outdir="rigo_m3u8/"
+video_outdir="rigo_mp4/"
 
-# could split this into 2 parts, "get urls for episode pages" and "get m3u8 from episode page".
-try:
-    print("get episode list")
-    while go:
-        with urllib.request.urlopen(episode_list_url+str(page)) as response:
-            episodes = json.load(response)
-            print("page "+str(page))
-            # this check doesnt work @todo
-            if not episodes.count:
-                go = False
-            else:
-                for episode in episodes:
-                    path = episode['path']
-                    print()
-                    print(path)
-                    name = path.replace('capitulos/', '')
-                    download_episode_m3u8(outdir, name, base_url+path)
-                page=page+1
+def download_video(playlist, outdir):
+    outfile=outdir+(Path(playlist).stem)+".mp4"
+    print("download m3u8 "+playlist+" ---> "+outfile)
+    ffmpeg = [
+        'ffmpeg',
+        '-loglevel',
+        'warning',
+        '-stats',
+        '-protocol_whitelist',
+        'file,http,https,tcp,tls',
+        '-allowed_extensions',
+        'ALL',
+        '-i',
+        playlist,
+        '-bsf:a',
+        'aac_adtstoasc',
+        '-c',
+        'copy',
+        outfile
+    ]
+    subprocess.run(ffmpeg)
     
-    print("done")
-    
-finally:
-    print("driver quit")
-    driver.quit()
-    
-def download_episode_m3u8(outdir, episode_name, episode_url):
+def find_download_episode_playlist(outdir, episode_name, episode_url):
     # clear requests from a previous run
     del driver.requests
     
@@ -81,7 +81,7 @@ def download_episode_m3u8(outdir, episode_name, episode_url):
             with open(outfile, mode='wb') as writer:
                 writer.write(body)
             print("found m3u8, wrote to "+outfile)
-            return
+            return outfile
         
     print("** did not succeed ***")
     driver.save_screenshot("fail-screenshot.png")
@@ -90,3 +90,29 @@ def download_episode_m3u8(outdir, episode_name, episode_url):
     print("current url: "+episode_url)
     print("saved screenshot")
     exit()
+
+# could split this into 2 parts, "get urls for episode pages" and "get m3u8 from episode page".
+try:
+    print("get episode list")
+    while go:
+        with urllib.request.urlopen(episode_list_url+str(page)) as response:
+            episodes = json.load(response)
+            print("page "+str(page))
+            if not episodes:
+                go = False
+            else:
+                for episode in episodes:
+                    path = episode['path']
+                    print()
+                    print(path)
+                    name = path.replace('capitulos/', '')
+                    m3u8 = find_download_episode_playlist(playlist_outdir, name, base_url+path)
+                    download_video(m3u8, video_outdir)
+                page=page+1
+    
+    print("done")
+    
+finally:
+    print("driver quit")
+    driver.quit()
+    
