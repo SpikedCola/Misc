@@ -17,11 +17,21 @@ chrome_options.add_argument("--headless=new")
 chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
 driver = webdriver.Chrome(options=chrome_options)
 
-# default useragent includes HeadlessChrome, replace it with a normal-looking user agent. 
-# otherwise we get a 429 trying to log in.
-driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.90 Safari/537.36'})
+# print versions
+browserVersion = driver.capabilities['browserVersion']
+driverVersion = driver.capabilities['chrome']['chromedriverVersion'].split(' ')[0]
+print("chrome browser is version "+browserVersion)
+print("chrome driver is version "+driverVersion)
+print()
+
+# default useragent includes HeadlessChrome, replace it with a normal-looking user agent. fill in matching chrome browser version.
+# without setting a useragent we get a 429 trying to log in.
+# hmm we still get a 429 logging in if outside canada. in canada this all works. 
+# wonder if location is being considered, or triggering more validation? manually in-browser it works.
+driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{browserVersion} Safari/537.36'})
 
 login_url = "https://www.pcoptimum.ca/login"
+success = False
 
 try:
     print("loading login page...")
@@ -40,12 +50,13 @@ try:
     print("submit login form")
     driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click() 
     
-    print("waiting for offers to be loaded...")
+    print("waiting for offers page to load...")
     offers_element = WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((By.CLASS_NAME, "header-offer-loading-indicator-loaded"))
     )
     print(offers_element.text)
     print("success")
+    success = True
     
     # couldnt find offers in window object. look at performance log to find xhr responses.
     performance_logs = driver.get_log("performance")
@@ -62,5 +73,9 @@ try:
             # todo: print list of offers
 
 finally:
+    if not success:
+        print("** did not succeed ***")
+        driver.save_screenshot("pc-fail-screenshot.png")
+        print("saved screenshot")
     print("driver quit")
     driver.quit()
