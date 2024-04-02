@@ -27,16 +27,23 @@ print()
 # default useragent includes HeadlessChrome, replace it with a normal-looking user agent. fill in matching chrome browser version.
 driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{browserVersion} Safari/537.36'})
 
-go = True
-page=0
-base_url = 'https://www.canalrcn.com/rigo/'
-episode_list_url=base_url+"capitulos/?ord=&page="
-playlist_outdir="rigo_m3u8/"
-video_outdir="rigo_mp4/"
+# config
+show = 'rigo'
+# /config
 
-def download_video(playlist, outdir):
-    outfile=outdir+(Path(playlist).stem)+".mp4"
-    print("download m3u8 "+playlist+" ---> "+outfile)
+base_url = 'https://www.canalrcn.com/'+show+'/'
+# list starts at page 0, but skips a bunch of episodes that are on the base_url page... hmm. @todo.
+page=0
+episode_list_url=base_url+"capitulos/?ord=&page="
+# will check playlist_outdir if playlist exists, if it does we will skip downloading playlist and video.
+playlist_outdir=show+"_m3u8/"
+video_outdir="D:/"+show+"/"
+# mkdir if not exists
+Path(playlist_outdir).mkdir(parents=True, exist_ok=True)
+Path(video_outdir).mkdir(parents=True, exist_ok=True)
+
+def download_video(playlist, video_outfile):
+    print("download m3u8 "+playlist+" ---> "+video_outfile)
     ffmpeg = [
         'ffmpeg',
         '-loglevel',
@@ -56,7 +63,7 @@ def download_video(playlist, outdir):
     ]
     subprocess.run(ffmpeg)
     
-def find_download_episode_playlist(outdir, episode_name, episode_url):
+def find_download_episode_playlist(episode_url, playlist_outfile):
     # clear requests from a previous run
     del driver.requests
     
@@ -67,21 +74,19 @@ def find_download_episode_playlist(outdir, episode_name, episode_url):
     player_element = WebDriverWait(driver, 5).until(
         EC.presence_of_element_located((By.CLASS_NAME, "dailymotion-player"))
     )
-    print("player present, sleep 3 for autoplay to start")
-    time.sleep(3)
+    print("player present, sleep 5 for autoplay to start...")
+    time.sleep(5)
       
     # selenium-wire adds driver.requests. 
     # wasnt able to find m3u8 with chrome log or js snippet, selenium-wire worked.
     # dump m3u8 file.
-    print("looking for m3u8")
+    print("look for m3u8...")
     for request in driver.requests:
         if request.response and "m3u8" in request.url and "dailymotion.com" in request.url:
             body = decode(request.response.body, request.response.headers.get('Content-Encoding', 'identity'))
-            outfile = outdir+episode_name+'.m3u8'
-            with open(outfile, mode='wb') as writer:
+            with open(playlist_outfile, mode='wb') as writer:
                 writer.write(body)
-            print("found m3u8, wrote to "+outfile)
-            return outfile
+            print("found m3u8, wrote to "+playlist_outfile)
         
     print("** did not succeed ***")
     driver.save_screenshot("fail-screenshot.png")
@@ -94,20 +99,28 @@ def find_download_episode_playlist(outdir, episode_name, episode_url):
 # could split this into 2 parts, "get urls for episode pages" and "get m3u8 from episode page".
 try:
     print("get episode list")
-    while go:
+    while True:
         with urllib.request.urlopen(episode_list_url+str(page)) as response:
             episodes = json.load(response)
             print("page "+str(page))
             if not episodes:
-                go = False
+                # out of work
+                break
             else:
                 for episode in episodes:
                     path = episode['path']
+                    episode_url = base_url+path
                     print()
                     print(path)
                     name = path.replace('capitulos/', '')
-                    m3u8 = find_download_episode_playlist(playlist_outdir, name, base_url+path)
-                    download_video(m3u8, video_outdir)
+                    playlist_file = playlist_outdir+name+'.m3u8'
+                    video_file = video_outdir+name+'.mp4'
+                    if Path(playlist_file).is_file():
+                        # @todo better
+                        print("playlist "+playlist_file+" exists, skipping download")
+                    else:
+                        find_download_episode_playlist(episode_url, playlist_file)
+                        download_video(playlist_file, video_file)
                 page=page+1
     
     print("done")
