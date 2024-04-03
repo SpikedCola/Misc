@@ -42,8 +42,8 @@ video_outdir="D:/"+show+"/"
 Path(playlist_outdir).mkdir(parents=True, exist_ok=True)
 Path(video_outdir).mkdir(parents=True, exist_ok=True)
 
-def download_video(playlist, video_outfile):
-    print("download m3u8 "+playlist+" ---> "+video_outfile)
+def download_video(playlist_file, video_file):
+    print("download m3u8 "+playlist_file+" ---> "+video_file)
     ffmpeg = [
         'ffmpeg',
         '-loglevel',
@@ -54,16 +54,16 @@ def download_video(playlist, video_outfile):
         '-allowed_extensions',
         'ALL',
         '-i',
-        playlist,
+        playlist_file,
         '-bsf:a',
         'aac_adtstoasc',
         '-c',
         'copy',
-        outfile
+        video_file
     ]
     subprocess.run(ffmpeg)
     
-def find_download_episode_playlist(episode_url, playlist_outfile):
+def find_download_episode_playlist(episode_url, playlist_file):
     # clear requests from a previous run
     del driver.requests
     
@@ -84,9 +84,9 @@ def find_download_episode_playlist(episode_url, playlist_outfile):
     for request in driver.requests:
         if request.response and "m3u8" in request.url and "dailymotion.com" in request.url:
             body = decode(request.response.body, request.response.headers.get('Content-Encoding', 'identity'))
-            with open(playlist_outfile, mode='wb') as writer:
+            with open(playlist_file, mode='wb') as writer:
                 writer.write(body)
-            print("found m3u8, wrote to "+playlist_outfile)
+            print("found m3u8, wrote to "+playlist_file)
             return
         
     print("** did not succeed ***")
