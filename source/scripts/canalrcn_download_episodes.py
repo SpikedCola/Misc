@@ -87,6 +87,7 @@ def find_download_episode_playlist(episode_url, playlist_outfile):
             with open(playlist_outfile, mode='wb') as writer:
                 writer.write(body)
             print("found m3u8, wrote to "+playlist_outfile)
+            return
         
     print("** did not succeed ***")
     driver.save_screenshot("fail-screenshot.png")
