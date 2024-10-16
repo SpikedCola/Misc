@@ -26,6 +26,4 @@ for /f "tokens=1,2,3,4 delims=\" %%a in (%last%) do (
 	)
 )
 
-echo "%BIN_TARGET%" --configuration="%result%\phpstan.neon" %*
-
 php "%BIN_TARGET%" --configuration="%result%\phpstan.neon" %*
