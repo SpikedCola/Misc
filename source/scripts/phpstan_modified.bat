@@ -1,8 +1,9 @@
+@ECHO OFF
+
 rem phpstan modified to pick out working directory from last argument
 rem and include a configuration file in that directory. this is so we 
 rem can load inc.php relative to the project dir.
 
-@ECHO OFF
 setlocal DISABLEDELAYEDEXPANSION
 SET BIN_TARGET=%~dp0/phpstan
 SET COMPOSER_RUNTIME_BIN_DIR=%~dp0
